@@ -1,0 +1,57 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type Airline {
+  airlineID: ID!
+  airlineName: String!
+  country: Country!
+}
+
+type Airport {
+  airportID: ID!
+  airportName: String!
+  city: City!
+}
+
+type City {
+  cityID: ID!
+  cityName: String!
+  country: Country!
+}
+
+type Country {
+  countryID: ID!
+  countryName: String!
+}
+
+type Flight {
+  airline: Airline!
+  destinationAirport: Airport!
+  flightID: ID!
+  originAirport: Airport!
+}
+
+input FlightSearchInput {
+  airlineID: String
+  destinationAirportID: String
+  destinationCityID: String
+  destinationCountryID: String
+  originAirportID: String
+  originCityID: String
+  originCountryID: String
+}
+
+type Query {
+  """Find flights with one connection between two airports"""
+  connectingFlights(destinationAirportID: ID!, originAirportID: ID!): [Flight!]
+
+  """Get a specific flight by ID"""
+  flight(flightID: ID!): Flight!
+
+  """Get all available flights with full details"""
+  flights: [Flight!]!
+
+  """Search flights with various filters"""
+  searchFlights(search: FlightSearchInput!): [Flight!]!
+}
