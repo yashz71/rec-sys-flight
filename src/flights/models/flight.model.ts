@@ -1,18 +1,32 @@
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
 import { Airline } from './airline.model';
 import { Airport } from './airport.model';
+import { SeatClass } from './seat-class.model';
 
 @ObjectType('Flight')
 export class Flight {
-  @Field(() => ID)
-  flightID: string;
+  @Field()
+  flightNumber: string;
 
   @Field(() => Airline)
   airline: Airline;
 
   @Field(() => Airport)
-  originAirport: Airport;
+  departureAirport: Airport;
 
   @Field(() => Airport)
-  destinationAirport: Airport;
+  arrivalAirport: Airport;
+
+  @Field()
+  departure: Date; // DateTime
+
+  @Field()
+  arrival: Date; // DateTime
+
+  @Field(() => Int)
+  duration: number; // En minutes (INTEGER)
+
+
+  @Field(() => [SeatClass])
+  prices: SeatClass[]; // Tous les prix disponibles
 }

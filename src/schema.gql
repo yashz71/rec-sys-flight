@@ -3,55 +3,67 @@
 # ------------------------------------------------------
 
 type Airline {
-  airlineID: ID!
-  airlineName: String!
-  country: Country!
+  code: ID!
+  name: String!
 }
 
 type Airport {
-  airportID: ID!
-  airportName: String!
   city: City!
+  code: ID!
 }
 
 type City {
-  cityID: ID!
-  cityName: String!
-  country: Country!
+  code: ID!
+  country: String!
+  name: String!
 }
 
-type Country {
-  countryID: ID!
-  countryName: String!
-}
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
 
 type Flight {
   airline: Airline!
-  destinationAirport: Airport!
-  flightID: ID!
-  originAirport: Airport!
+  arrival: DateTime!
+  arrivalAirport: Airport!
+  departure: DateTime!
+  departureAirport: Airport!
+  duration: Int!
+  flightNumber: String!
+  prices: [SeatClass!]!
 }
 
 input FlightSearchInput {
-  airlineID: String
-  destinationAirportID: String
-  destinationCityID: String
-  destinationCountryID: String
-  originAirportID: String
-  originCityID: String
-  originCountryID: String
+  airlineCode: String
+  arrivalAirportCode: String
+  arrivalCity: String
+  arrivalCountry: String
+  departureAirportCode: String
+  departureCity: String
+  departureCountry: String
+  departureDate: DateTime
+  limit: Int = 10
+  maxPrice: Float
+  seatClass: String
 }
 
 type Query {
-  """Find flights with one connection between two airports"""
-  connectingFlights(destinationAirportID: ID!, originAirportID: ID!): [Flight!]
+  """Get a specific flight by flight number"""
+  flight(flightNumber: String!): Flight!
 
-  """Get a specific flight by ID"""
-  flight(flightID: ID!): Flight!
+  """Get all available flights with prices"""
+  flights(limit: Int = 50): [Flight!]!
 
-  """Get all available flights with full details"""
-  flights: [Flight!]!
+  """Get recommended similar flights based on a flight number"""
+  recommendedFlights(flightNumber: String!): [Flight!]!
 
-  """Search flights with various filters"""
+  """Search flights with various filters including price and seat class"""
   searchFlights(search: FlightSearchInput!): [Flight!]!
+}
+
+type SeatClass {
+  amount: Float!
+  currency: String!
+  type: String!
 }

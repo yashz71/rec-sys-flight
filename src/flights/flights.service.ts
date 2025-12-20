@@ -2,203 +2,225 @@ import { Injectable } from '@nestjs/common';
 import { Neo4jService } from '../neo4j/neo4j.service';
 import { Flight } from './models/flight.model';
 import { FlightSearchInput } from './inputs/flight-search.input';
+import { int, Integer } from 'neo4j-driver';
 
 @Injectable()
 export class FlightsService {
   constructor(private readonly neo4jService: Neo4jService) {}
 
-  async getAllFlights(): Promise<Flight[]> {
+  // Récupérer tous les vols avec tous les détails
+  async getAllFlights(limit: number = 50): Promise<Flight[]> {
     const cypher = `
-      MATCH (f:Flight)-[:OF]->(airline:Airline)-[:BELONGS_TO]->(airlineCountry:Country)
-      MATCH (f)-[:ORIGINATION]->(origin:Airport)-[:IS_IN]->(originCity:City)-[:EXISTS_IN]->(originCountry:Country)
-      MATCH (f)-[:DESTINATION]->(dest:Airport)-[:IS_IN]->(destCity:City)-[:EXISTS_IN]->(destCountry:Country)
-      RETURN f.flightID as flightID,
-             airline.airlineID as airlineID,
-             airline.airlineName as airlineName,
-             airlineCountry.countryID as airlineCountryID,
-             airlineCountry.countryName as airlineCountryName,
-             origin.airportID as originAirportID,
-             origin.airportName as originAirportName,
-             originCity.cityID as originCityID,
-             originCity.cityName as originCityName,
-             originCountry.countryID as originCountryID,
-             originCountry.countryName as originCountryName,
-             dest.airportID as destAirportID,
-             dest.airportName as destAirportName,
-             destCity.cityID as destCityID,
-             destCity.cityName as destCityName,
-             destCountry.countryID as destCountryID,
-             destCountry.countryName as destCountryName
+      MATCH (f:Flight)-[:OPERATES]-(airline:Airline)
+      MATCH (f)-[:DEPARTS_FROM]->(depAirport:Airport)-[:LOCATED_IN]->(depCity:City)
+      MATCH (f)-[:ARRIVES_AT]->(arrAirport:Airport)-[:LOCATED_IN]->(arrCity:City)
+      OPTIONAL MATCH (f)-[hp:HAS_PRICE]->(sc:SeatClass)
+      WITH f, airline, depAirport, depCity, arrAirport, arrCity,
+           collect({
+             type: sc.type,
+             amount: hp.amount,
+             currency: hp.currency
+           }) as prices
+      RETURN f.flightNumber as flightNumber,
+             f.departure as departure,
+             f.arrival as arrival,
+             f.duration as duration,
+             airline.code as airlineCode,
+             airline.name as airlineName,
+             depAirport.code as depAirportCode,
+             depCity.name as depCityName,
+             depCity.country as depCountry,
+             arrAirport.code as arrAirportCode,
+             arrCity.name as arrCityName,
+             arrCity.country as arrCountry,
+             prices
+      LIMIT $limit
     `;
 
-    const results = await this.neo4jService.read(cypher);
+    const results = await this.neo4jService.read(cypher, { 
+      limit: int(limit)
+    });
     
     return results.map(r => ({
-      flightID: r.flightID,
+      flightNumber: r.flightNumber,
+      departure: new Date(r.departure),
+      arrival: new Date(r.arrival),
+      duration: r.duration.toNumber ? r.duration.toNumber() : r.duration,
       airline: {
-        airlineID: r.airlineID,
-        airlineName: r.airlineName,
-        country: {
-          countryID: r.airlineCountryID,
-          countryName: r.airlineCountryName,
-        },
+        code: r.airlineCode,
+        name: r.airlineName,
       },
-      originAirport: {
-        airportID: r.originAirportID,
-        airportName: r.originAirportName,
+      departureAirport: {
+        code: r.depAirportCode,
         city: {
-          cityID: r.originCityID,
-          cityName: r.originCityName,
-          country: {
-            countryID: r.originCountryID,
-            countryName: r.originCountryName,
-          },
+          code: r.depAirportCode,
+          name: r.depCityName,
+          country: r.depCountry,
         },
       },
-      destinationAirport: {
-        airportID: r.destAirportID,
-        airportName: r.destAirportName,
+      arrivalAirport: {
+        code: r.arrAirportCode,
         city: {
-          cityID: r.destCityID,
-          cityName: r.destCityName,
-          country: {
-            countryID: r.destCountryID,
-            countryName: r.destCountryName,
-          },
+          code: r.arrAirportCode,
+          name: r.arrCityName,
+          country: r.arrCountry,
         },
       },
+      prices: r.prices.filter(p => p.type !== null),
     }));
   }
 
+  // Recherche de vols avec filtres avancés
   async searchFlights(search: FlightSearchInput): Promise<Flight[]> {
-    const conditions: any = [];
-    const params: any = {};
-
-    if (search.originAirportID) {
-      conditions.push('origin.airportID = $originAirportID');
-      params.originAirportID = search.originAirportID;
+    const conditions: String[] = [];
+    const params: any = { 
+      limit: int(search.limit || 50)  // ✅ Force Integer
+    };
+    if (search.departureAirportCode) {
+      conditions.push('depAirport.code = $departureAirportCode');
+      params.departureAirportCode = search.departureAirportCode;
     }
 
-    if (search.destinationAirportID) {
-      conditions.push('dest.airportID = $destinationAirportID');
-      params.destinationAirportID = search.destinationAirportID;
+    if (search.arrivalAirportCode) {
+      conditions.push('arrAirport.code = $arrivalAirportCode');
+      params.arrivalAirportCode = search.arrivalAirportCode;
     }
 
-    if (search.airlineID) {
-      conditions.push('airline.airlineID = $airlineID');
-      params.airlineID = search.airlineID;
+    if (search.airlineCode) {
+      conditions.push('airline.code = $airlineCode');
+      params.airlineCode = search.airlineCode;
     }
 
-    if (search.originCityID) {
-      conditions.push('originCity.cityID = $originCityID');
-      params.originCityID = search.originCityID;
+    if (search.departureCity) {
+      conditions.push('depCity.name = $departureCity');
+      params.departureCity = search.departureCity;
     }
 
-    if (search.destinationCityID) {
-      conditions.push('destCity.cityID = $destinationCityID');
-      params.destinationCityID = search.destinationCityID;
+    if (search.arrivalCity) {
+      conditions.push('arrCity.name = $arrivalCity');
+      params.arrivalCity = search.arrivalCity;
     }
 
-    if (search.originCountryID) {
-      conditions.push('originCountry.countryID = $originCountryID');
-      params.originCountryID = search.originCountryID;
+    if (search.departureCountry) {
+      conditions.push('depCity.country = $departureCountry');
+      params.departureCountry = search.departureCountry;
     }
 
-    if (search.destinationCountryID) {
-      conditions.push('destCountry.countryID = $destinationCountryID');
-      params.destinationCountryID = search.destinationCountryID;
+    if (search.arrivalCountry) {
+      conditions.push('arrCity.country = $arrivalCountry');
+      params.arrivalCountry = search.arrivalCountry;
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    if (search.departureDate) {
+      conditions.push('date(f.departure) = date($departureDate)');
+      params.departureDate = search.departureDate;
+    }
+
+    const whereClause = conditions.length > 0 
+      ? `WHERE ${conditions.join(' AND ')}` 
+      : '';
+
+    // Filtre par prix et classe de siège si spécifié
+    let priceFilter = '';
+    if (search.maxPrice) {
+      priceFilter = `AND hp.amount <= $maxPrice`;
+      params.maxPrice = int(search.maxPrice);  // ✅
+    }
+
+    if (search.seatClass) {
+      priceFilter += ` AND sc.type = $seatClass`;
+      params.seatClass = search.seatClass;
+    }
 
     const cypher = `
-      MATCH (f:Flight)-[:OF]->(airline:Airline)-[:BELONGS_TO]->(airlineCountry:Country)
-      MATCH (f)-[:ORIGINATION]->(origin:Airport)-[:IS_IN]->(originCity:City)-[:EXISTS_IN]->(originCountry:Country)
-      MATCH (f)-[:DESTINATION]->(dest:Airport)-[:IS_IN]->(destCity:City)-[:EXISTS_IN]->(destCountry:Country)
+      MATCH (f:Flight)-[:OPERATES]-(airline:Airline)
+      MATCH (f)-[:DEPARTS_FROM]->(depAirport:Airport)-[:LOCATED_IN]->(depCity:City)
+      MATCH (f)-[:ARRIVES_AT]->(arrAirport:Airport)-[:LOCATED_IN]->(arrCity:City)
       ${whereClause}
-      RETURN f.flightID as flightID,
-             airline.airlineID as airlineID,
-             airline.airlineName as airlineName,
-             airlineCountry.countryID as airlineCountryID,
-             airlineCountry.countryName as airlineCountryName,
-             origin.airportID as originAirportID,
-             origin.airportName as originAirportName,
-             originCity.cityID as originCityID,
-             originCity.cityName as originCityName,
-             originCountry.countryID as originCountryID,
-             originCountry.countryName as originCountryName,
-             dest.airportID as destAirportID,
-             dest.airportName as destAirportName,
-             destCity.cityID as destCityID,
-             destCity.cityName as destCityName,
-             destCountry.countryID as destCountryID,
-             destCountry.countryName as destCountryName
+      OPTIONAL MATCH (f)-[hp:HAS_PRICE]->(sc:SeatClass)
+      ${priceFilter ? 'WHERE 1=1 ' + priceFilter : ''}
+      WITH f, airline, depAirport, depCity, arrAirport, arrCity,
+           collect({
+             type: sc.type,
+             amount: hp.amount,
+             currency: hp.currency
+           }) as prices
+      RETURN f.flightNumber as flightNumber,
+             f.departure as departure,
+             f.arrival as arrival,
+             f.duration as duration,
+             airline.code as airlineCode,
+             airline.name as airlineName,
+             depAirport.code as depAirportCode,
+             depCity.name as depCityName,
+             depCity.country as depCountry,
+             arrAirport.code as arrAirportCode,
+             arrCity.name as arrCityName,
+             arrCity.country as arrCountry,
+             prices
+      LIMIT $limit
     `;
 
     const results = await this.neo4jService.read(cypher, params);
     
     return results.map(r => ({
-      flightID: r.flightID,
+      flightNumber: r.flightNumber,
+      departure: new Date(r.departure),
+      arrival: new Date(r.arrival),
+      duration: r.duration.toNumber ? r.duration.toNumber() : r.duration,
       airline: {
-        airlineID: r.airlineID,
-        airlineName: r.airlineName,
-        country: {
-          countryID: r.airlineCountryID,
-          countryName: r.airlineCountryName,
-        },
+        code: r.airlineCode,
+        name: r.airlineName,
       },
-      originAirport: {
-        airportID: r.originAirportID,
-        airportName: r.originAirportName,
+      departureAirport: {
+        code: r.depAirportCode,
         city: {
-          cityID: r.originCityID,
-          cityName: r.originCityName,
-          country: {
-            countryID: r.originCountryID,
-            countryName: r.originCountryName,
-          },
+          code: r.depAirportCode,
+          name: r.depCityName,
+          country: r.depCountry,
         },
       },
-      destinationAirport: {
-        airportID: r.destAirportID,
-        airportName: r.destAirportName,
+      arrivalAirport: {
+        code: r.arrAirportCode,
         city: {
-          cityID: r.destCityID,
-          cityName: r.destCityName,
-          country: {
-            countryID: r.destCountryID,
-            countryName: r.destCountryName,
-          },
+          code: r.arrAirportCode,
+          name: r.arrCityName,
+          country: r.arrCountry,
         },
       },
+      prices: r.prices.filter(p => p.type !== null),
     }));
   }
 
-  async getFlightById(flightID: string): Promise<Flight> {
+  // Récupérer un vol spécifique par son numéro
+  async getFlightByNumber(flightNumber: string): Promise<Flight> {
     const cypher = `
-      MATCH (f:Flight {flightID: $flightID})-[:OF]->(airline:Airline)-[:BELONGS_TO]->(airlineCountry:Country)
-      MATCH (f)-[:ORIGINATION]->(origin:Airport)-[:IS_IN]->(originCity:City)-[:EXISTS_IN]->(originCountry:Country)
-      MATCH (f)-[:DESTINATION]->(dest:Airport)-[:IS_IN]->(destCity:City)-[:EXISTS_IN]->(destCountry:Country)
-      RETURN f.flightID as flightID,
-             airline.airlineID as airlineID,
-             airline.airlineName as airlineName,
-             airlineCountry.countryID as airlineCountryID,
-             airlineCountry.countryName as airlineCountryName,
-             origin.airportID as originAirportID,
-             origin.airportName as originAirportName,
-             originCity.cityID as originCityID,
-             originCity.cityName as originCityName,
-             originCountry.countryID as originCountryID,
-             originCountry.countryName as originCountryName,
-             dest.airportID as destAirportID,
-             dest.airportName as destAirportName,
-             destCity.cityID as destCityID,
-             destCity.cityName as destCityName,
-             destCountry.countryID as destCountryID,
-             destCountry.countryName as destCountryName
+      MATCH (f:Flight {flightNumber: $flightNumber})-[:OPERATES]-(airline:Airline)
+      MATCH (f)-[:DEPARTS_FROM]->(depAirport:Airport)-[:LOCATED_IN]->(depCity:City)
+      MATCH (f)-[:ARRIVES_AT]->(arrAirport:Airport)-[:LOCATED_IN]->(arrCity:City)
+      OPTIONAL MATCH (f)-[hp:HAS_PRICE]->(sc:SeatClass)
+      WITH f, airline, depAirport, depCity, arrAirport, arrCity,
+           collect({
+             type: sc.type,
+             amount: hp.amount,
+             currency: hp.currency
+           }) as prices
+      RETURN f.flightNumber as flightNumber,
+             f.departure as departure,
+             f.arrival as arrival,
+             f.duration as duration,
+             airline.code as airlineCode,
+             airline.name as airlineName,
+             depAirport.code as depAirportCode,
+             depCity.name as depCityName,
+             depCity.country as depCountry,
+             arrAirport.code as arrAirportCode,
+             arrCity.name as arrCityName,
+             arrCity.country as arrCountry,
+             prices
     `;
 
-    const results = await this.neo4jService.read(cypher, { flightID });
+    const results = await this.neo4jService.read(cypher, { flightNumber });
     
     if (results.length === 0) {
       throw new Error('Flight not found');
@@ -206,62 +228,137 @@ export class FlightsService {
 
     const r = results[0];
     return {
-      flightID: r.flightID,
+      flightNumber: r.flightNumber,
+      departure: new Date(r.departure),
+      arrival: new Date(r.arrival),
+      duration: r.duration.toNumber ? r.duration.toNumber() : r.duration,
       airline: {
-        airlineID: r.airlineID,
-        airlineName: r.airlineName,
-        country: {
-          countryID: r.airlineCountryID,
-          countryName: r.airlineCountryName,
-        },
+        code: r.airlineCode,
+        name: r.airlineName,
       },
-      originAirport: {
-        airportID: r.originAirportID,
-        airportName: r.originAirportName,
+      departureAirport: {
+        code: r.depAirportCode,
         city: {
-          cityID: r.originCityID,
-          cityName: r.originCityName,
-          country: {
-            countryID: r.originCountryID,
-            countryName: r.originCountryName,
-          },
+          code: r.depAirportCode,
+          name: r.depCityName,
+          country: r.depCountry,
         },
       },
-      destinationAirport: {
-        airportID: r.destAirportID,
-        airportName: r.destAirportName,
+      arrivalAirport: {
+        code: r.arrAirportCode,
         city: {
-          cityID: r.destCityID,
-          cityName: r.destCityName,
-          country: {
-            countryID: r.destCountryID,
-            countryName: r.destCountryName,
-          },
+          code: r.arrAirportCode,
+          name: r.arrCityName,
+          country: r.arrCountry,
         },
       },
+      prices: r.prices.filter(p => p.type !== null),
     };
   }
 
-  async findConnectingFlights(originAirportID: string, destAirportID: string) {
+  // Trouver des vols de connexion (1 escale)
+  async findConnectingFlights(
+    departureCode: string, 
+    arrivalCode: string,
+    maxPrice?: number
+  ) {
     const cypher = `
-      MATCH path = (origin:Airport {airportID: $originAirportID})
-                   <-[:ORIGINATION]-(f1:Flight)-[:DESTINATION]->
-                   (hub:Airport)
-                   <-[:ORIGINATION]-(f2:Flight)-[:DESTINATION]->
-                   (dest:Airport {airportID: $destAirportID})
-      WHERE origin <> hub AND hub <> dest
-      WITH f1, f2, hub
-      MATCH (f1)-[:OF]->(a1:Airline)-[:BELONGS_TO]->(ac1:Country)
-      MATCH (f1)-[:ORIGINATION]->(o1:Airport)-[:IS_IN]->(oc1:City)-[:EXISTS_IN]->(occ1:Country)
-      MATCH (f1)-[:DESTINATION]->(d1:Airport)-[:IS_IN]->(dc1:City)-[:EXISTS_IN]->(dcc1:Country)
-      MATCH (f2)-[:OF]->(a2:Airline)-[:BELONGS_TO]->(ac2:Country)
-      MATCH (f2)-[:ORIGINATION]->(o2:Airport)-[:IS_IN]->(oc2:City)-[:EXISTS_IN]->(occ2:Country)
-      MATCH (f2)-[:DESTINATION]->(d2:Airport)-[:IS_IN]->(dc2:City)-[:EXISTS_IN]->(dcc2:Country)
-      RETURN f1, f2, hub, a1, ac1, o1, oc1, occ1, d1, dc1, dcc1,
-             a2, ac2, o2, oc2, occ2, d2, dc2, dcc2
+      MATCH (f1:Flight)-[:DEPARTS_FROM]->(dep:Airport {code: $departureCode})
+      MATCH (f1)-[:ARRIVES_AT]->(hub:Airport)
+      MATCH (f2:Flight)-[:DEPARTS_FROM]->(hub)
+      MATCH (f2)-[:ARRIVES_AT]->(arr:Airport {code: $arrivalCode})
+      WHERE f1.arrival < f2.departure
+        AND duration.between(f1.arrival, f2.departure).minutes >= 60
+        AND duration.between(f1.arrival, f2.departure).minutes <= 360
+      OPTIONAL MATCH (f1)-[hp1:HAS_PRICE]->(sc1:SeatClass)
+      OPTIONAL MATCH (f2)-[hp2:HAS_PRICE]->(sc2:SeatClass)
+      WHERE sc1.type = sc2.type
+        ${maxPrice ? 'AND (hp1.amount + hp2.amount) <= $maxPrice' : ''}
+      RETURN f1.flightNumber as flight1,
+             f2.flightNumber as flight2,
+             hub.code as hubCode,
+             sc1.type as seatClass,
+             (hp1.amount + hp2.amount) as totalPrice,
+             hp1.currency as currency
+      ORDER BY totalPrice
       LIMIT 10
     `;
 
-    return await this.neo4jService.read(cypher, { originAirportID, destAirportID });
+    return await this.neo4jService.read(cypher, { 
+      departureCode, 
+      arrivalCode,
+      ...(maxPrice && { maxPrice })
+    });
+  }
+
+  // Recommandations de vols similaires
+  async getRecommendedFlights(flightNumber: string): Promise<Flight[]> {
+    const cypher = `
+      MATCH (original:Flight {flightNumber: $flightNumber})
+      MATCH (original)-[:DEPARTS_FROM]->(depAirport:Airport)
+      MATCH (original)-[:ARRIVES_AT]->(arrAirport:Airport)
+      
+      // Trouver des vols similaires (même route ou compagnie)
+      MATCH (similar:Flight)-[:DEPARTS_FROM]->(depAirport)
+      MATCH (similar)-[:ARRIVES_AT]->(arrAirport)
+      WHERE similar.flightNumber <> $flightNumber
+      
+      MATCH (similar)-[:OPERATES]-(airline:Airline)
+      MATCH (depAirport)-[:LOCATED_IN]->(depCity:City)
+      MATCH (arrAirport)-[:LOCATED_IN]->(arrCity:City)
+      OPTIONAL MATCH (similar)-[hp:HAS_PRICE]->(sc:SeatClass)
+      
+      WITH similar, airline, depAirport, depCity, arrAirport, arrCity,
+           collect({
+             type: sc.type,
+             amount: hp.amount,
+             currency: hp.currency
+           }) as prices
+      
+      RETURN similar.flightNumber as flightNumber,
+             similar.departure as departure,
+             similar.arrival as arrival,
+             similar.duration as duration,
+             airline.code as airlineCode,
+             airline.name as airlineName,
+             depAirport.code as depAirportCode,
+             depCity.name as depCityName,
+             depCity.country as depCountry,
+             arrAirport.code as arrAirportCode,
+             arrCity.name as arrCityName,
+             arrCity.country as arrCountry,
+             prices
+      LIMIT 5
+    `;
+
+    const results = await this.neo4jService.read(cypher, { flightNumber });
+    
+    return results.map(r => ({
+      flightNumber: r.flightNumber,
+      departure: new Date(r.departure),
+      arrival: new Date(r.arrival),
+      duration: r.duration.toNumber ? r.duration.toNumber() : r.duration,
+      airline: {
+        code: r.airlineCode,
+        name: r.airlineName,
+      },
+      departureAirport: {
+        code: r.depAirportCode,
+        city: {
+          code: r.depAirportCode,
+          name: r.depCityName,
+          country: r.depCountry,
+        },
+      },
+      arrivalAirport: {
+        code: r.arrAirportCode,
+        city: {
+          code: r.arrAirportCode,
+          name: r.arrCityName,
+          country: r.arrCountry,
+        },
+      },
+      prices: r.prices.filter(p => p.type !== null),
+    }));
   }
 }

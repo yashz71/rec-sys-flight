@@ -1,14 +1,13 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
-import { Country } from './country.model';
 
 @ObjectType('City')
 export class City {
   @Field(() => ID)
-  cityID: string;
+  code: string;
 
   @Field()
-  cityName: string;
+  name: string;
 
-  @Field(() => Country)
-  country: Country;
+  @Field()
+  country: string;
 }

@@ -4,10 +4,7 @@ import { City } from './city.model';
 @ObjectType('Airport')
 export class Airport {
   @Field(() => ID)
-  airportID: string;
-
-  @Field()
-  airportName: string;
+  code: string;
 
   @Field(() => City)
   city: City;

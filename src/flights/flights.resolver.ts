@@ -1,4 +1,4 @@
-import { Resolver, Query, Args, ID } from '@nestjs/graphql';
+import { Resolver, Query, Args, ID, Int } from '@nestjs/graphql';
 import { FlightsService } from './flights.service';
 import { Flight } from './models/flight.model';
 import { FlightSearchInput } from './inputs/flight-search.input';
@@ -9,25 +9,28 @@ export class FlightsResolver {
 
   @Query(() => [Flight], { 
     name: 'flights',
-    description: 'Get all available flights with full details'
+    description: 'Get all available flights with prices'
   })
-  async getFlights(): Promise<Flight[]> {
-    return await this.flightsService.getAllFlights();
+  async getFlights(
+    @Args('limit', { type: () => Int, nullable: true, defaultValue: 50 }) 
+    limit: number
+  ): Promise<Flight[]> {
+    return await this.flightsService.getAllFlights(limit);
   }
 
   @Query(() => Flight, { 
     name: 'flight',
-    description: 'Get a specific flight by ID'
+    description: 'Get a specific flight by flight number'
   })
   async getFlight(
-    @Args('flightID', { type: () => ID }) flightID: string
+    @Args('flightNumber') flightNumber: string
   ): Promise<Flight> {
-    return await this.flightsService.getFlightById(flightID);
+    return await this.flightsService.getFlightByNumber(flightNumber);
   }
 
   @Query(() => [Flight], { 
     name: 'searchFlights',
-    description: 'Search flights with various filters'
+    description: 'Search flights with various filters including price and seat class'
   })
   async searchFlights(
     @Args('search') search: FlightSearchInput
@@ -36,18 +39,12 @@ export class FlightsResolver {
   }
 
   @Query(() => [Flight], { 
-    name: 'connectingFlights',
-    description: 'Find flights with one connection between two airports',
-    nullable: true
+    name: 'recommendedFlights',
+    description: 'Get recommended similar flights based on a flight number'
   })
-  async getConnectingFlights(
-    @Args('originAirportID', { type: () => ID }) originAirportID: string,
-    @Args('destinationAirportID', { type: () => ID }) destinationAirportID: string,
-  ) {
-    return await this.flightsService.findConnectingFlights(
-      originAirportID,
-      destinationAirportID,
-    );
+  async getRecommendedFlights(
+    @Args('flightNumber') flightNumber: string
+  ): Promise<Flight[]> {
+    return await this.flightsService.getRecommendedFlights(flightNumber);
   }
 }
-

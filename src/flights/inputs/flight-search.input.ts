@@ -1,25 +1,37 @@
-import { InputType, Field } from '@nestjs/graphql';
+import { InputType, Field, Float, Int } from '@nestjs/graphql';
 
 @InputType()
 export class FlightSearchInput {
   @Field({ nullable: true })
-  originAirportID?: string;
+  departureAirportCode?: string;
 
   @Field({ nullable: true })
-  destinationAirportID?: string;
+  arrivalAirportCode?: string;
 
   @Field({ nullable: true })
-  airlineID?: string;
+  airlineCode?: string;
 
   @Field({ nullable: true })
-  originCityID?: string;
+  departureCity?: string;
 
   @Field({ nullable: true })
-  destinationCityID?: string;
+  arrivalCity?: string;
 
   @Field({ nullable: true })
-  originCountryID?: string;
+  departureCountry?: string;
 
   @Field({ nullable: true })
-  destinationCountryID?: string;
+  arrivalCountry?: string;
+
+  @Field({ nullable: true })
+  departureDate?: Date; // Filtre par date de départ
+
+  @Field(() => Float, { nullable: true })
+  maxPrice?: number; // Prix maximum (FLOAT)
+
+  @Field({ nullable: true })
+  seatClass?: string; // Economy, Business, First
+
+  @Field(() => Int, { nullable: true, defaultValue: 10 })
+  limit?: number; 
 }
