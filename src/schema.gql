@@ -12,6 +12,11 @@ type Airport {
   code: ID!
 }
 
+type AuthResponse {
+  access_token: String!
+  user: User!
+}
+
 type City {
   code: ID!
   country: String!
@@ -48,12 +53,23 @@ input FlightSearchInput {
   seatClass: String
 }
 
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  login(loginInput: LoginInput!): AuthResponse!
+  register(registerInput: RegisterInput!): AuthResponse!
+}
+
 type Query {
   """Get a specific flight by flight number"""
   flight(flightNumber: String!): Flight!
 
   """Get all available flights with prices"""
   flights(limit: Int = 50): [Flight!]!
+  me: User!
 
   """Get recommended similar flights based on a flight number"""
   recommendedFlights(flightNumber: String!): [Flight!]!
@@ -62,8 +78,26 @@ type Query {
   searchFlights(search: FlightSearchInput!): [Flight!]!
 }
 
+input RegisterInput {
+  email: String!
+  password: String!
+  username: String!
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
 type SeatClass {
   amount: Float!
   currency: String!
   type: String!
+}
+
+type User {
+  email: String!
+  id: ID!
+  roles: [Role!]!
+  username: String!
 }

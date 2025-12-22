@@ -9,6 +9,8 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { join } from 'path';
 import { FlightsResolver } from './flights/flights.resolver';
 import { FlightsModule } from './flights/flights.module';
+import { UserModule } from './user/user.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [ConfigModule.forRoot({
@@ -30,7 +32,7 @@ import { FlightsModule } from './flights/flights.module';
       },
       
     }), 
-    Neo4jModule, FlightsModule],
+    Neo4jModule, FlightsModule, UserModule, AuthModule],
   controllers: [AppController],
   providers: [AppService, FlightsService, FlightsResolver],
 })

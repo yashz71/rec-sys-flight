@@ -328,7 +328,7 @@ export class FlightsService {
              arrCity.name as arrCityName,
              arrCity.country as arrCountry,
              prices
-      LIMIT 5
+      LIMIT $limit
     `;
 
     const results = await this.neo4jService.read(cypher, { flightNumber });
