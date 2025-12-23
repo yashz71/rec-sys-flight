@@ -4,18 +4,33 @@ import { JwtService } from '@nestjs/jwt';
 import { RegisterInput } from './dto/register.input';
 import * as bcrypt from 'bcrypt';
 import { AuthResponse } from './dto/auth.response'; 
+import { UpdateUserInput } from './dto/update-user.input';
+import { User } from 'src/user/model/user.model';
 @Injectable()
 export class AuthService {
     constructor(private userService: UserService, private jwtService: JwtService){}
+    async allUsers(): Promise<User[]>{
+      const result = await this.userService.findAllUsers();
+      return result;
+    }
     async validateUser(email: string, pass: string): Promise<any> {
-        const user = await this.userService.findByEmail(email);
-        if (user && await bcrypt.compare(pass, user.password)) {
-          const { password, ...result } = user;
-          return result;
-        }
+      // Now 'user' is already the properties object thanks to your findByEmail change
+      const user = await this.userService.findByEmail(email);
+    
+      // 1. Check if user exists
+      if (!user){ 
         return null;
       }
 
+      // 2. Compare directly (user.password exists now)
+      const isMatch = bcrypt.compareSync(pass, user.password);
+      if (isMatch) {
+        const { password, ...result } = user;
+        return result;
+      }
+      
+      return null;
+    }
       async login(user: any): Promise<AuthResponse> {
         // 1. Ensure the payload keys match what your JwtStrategy expects
         const payload = { 
@@ -58,5 +73,26 @@ export class AuthService {
       access_token: this.jwtService.sign(payload),
       user: newUser,
     };
+  }
+  async updateUser(id: string, input: UpdateUserInput): Promise<User> {
+    const updateData: any = { ...input };
+  
+    // 1. If password exists in the input, hash it
+    if (updateData.password) {
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(updateData.password, salt);
+    }
+  
+    // 2. Pass the sanitized/hashed data to the Cypher-layer
+    const updatedUser = await this.userService.update(id, updateData);
+  
+    // 3. Destructure to hide the hashed password from the GraphQL response
+    const { password, ...safeUser } = updatedUser;
+    return safeUser as User;
+  }
+  async deleteUser(id: string): Promise<boolean>{
+    const result = await this.userService.delete(id);
+    return result;
+
   }
 }

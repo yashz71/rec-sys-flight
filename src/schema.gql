@@ -23,6 +23,16 @@ type City {
   name: String!
 }
 
+input CreateFlightInput {
+  airlineCode: String!
+  arrAirportCode: String!
+  arrival: DateTime!
+  depAirportCode: String!
+  departure: DateTime!
+  duration: Float!
+  flightNumber: String!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -59,8 +69,13 @@ input LoginInput {
 }
 
 type Mutation {
+  createFlight(input: CreateFlightInput!): Flight!
+  deleteFlight(flightNumber: String!): Boolean!
   login(loginInput: LoginInput!): AuthResponse!
   register(registerInput: RegisterInput!): AuthResponse!
+  removeUser(id: String!): Boolean!
+  updateFlight(flightNumber: String!, input: CreateFlightInput!): Flight!
+  updateProfile(id: String!, input: UpdateUserInput!): User!
 }
 
 type Query {
@@ -71,11 +86,11 @@ type Query {
   flights(limit: Int = 50): [Flight!]!
   me: User!
 
-  """Get recommended similar flights based on a flight number"""
-  recommendedFlights(flightNumber: String!): [Flight!]!
-
   """Search flights with various filters including price and seat class"""
   searchFlights(search: FlightSearchInput!): [Flight!]!
+
+  """Get all available users"""
+  users: [User!]!
 }
 
 input RegisterInput {
@@ -93,6 +108,12 @@ type SeatClass {
   amount: Float!
   currency: String!
   type: String!
+}
+
+input UpdateUserInput {
+  email: String
+  password: String
+  username: String
 }
 
 type User {

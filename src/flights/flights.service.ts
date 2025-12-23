@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Neo4jService } from '../neo4j/neo4j.service';
 import { Flight } from './models/flight.model';
 import { FlightSearchInput } from './inputs/flight-search.input';
 import { int, Integer } from 'neo4j-driver';
+import { CreateFlightInput } from './inputs/create-flight.input';
 
 @Injectable()
 export class FlightsService {
@@ -255,110 +256,64 @@ export class FlightsService {
       prices: r.prices.filter(p => p.type !== null),
     };
   }
-
-  // Trouver des vols de connexion (1 escale)
-  async findConnectingFlights(
-    departureCode: string, 
-    arrivalCode: string,
-    maxPrice?: number
-  ) {
+  async createFlight(input: CreateFlightInput): Promise<any> {
     const cypher = `
-      MATCH (f1:Flight)-[:DEPARTS_FROM]->(dep:Airport {code: $departureCode})
-      MATCH (f1)-[:ARRIVES_AT]->(hub:Airport)
-      MATCH (f2:Flight)-[:DEPARTS_FROM]->(hub)
-      MATCH (f2)-[:ARRIVES_AT]->(arr:Airport {code: $arrivalCode})
-      WHERE f1.arrival < f2.departure
-        AND duration.between(f1.arrival, f2.departure).minutes >= 60
-        AND duration.between(f1.arrival, f2.departure).minutes <= 360
-      OPTIONAL MATCH (f1)-[hp1:HAS_PRICE]->(sc1:SeatClass)
-      OPTIONAL MATCH (f2)-[hp2:HAS_PRICE]->(sc2:SeatClass)
-      WHERE sc1.type = sc2.type
-        ${maxPrice ? 'AND (hp1.amount + hp2.amount) <= $maxPrice' : ''}
-      RETURN f1.flightNumber as flight1,
-             f2.flightNumber as flight2,
-             hub.code as hubCode,
-             sc1.type as seatClass,
-             (hp1.amount + hp2.amount) as totalPrice,
-             hp1.currency as currency
-      ORDER BY totalPrice
-      LIMIT 10
+      MATCH (a:Airline {code: $airlineCode})
+      MATCH (dep:Airport {code: $depAirportCode})
+      MATCH (arr:Airport {code: $arrAirportCode})
+      CREATE (f:Flight {
+        flightNumber: $flightNumber,
+        departure: $departure,
+        arrival: $arrival,
+        duration: $duration
+      })
+      CREATE (f)-[:OPERATES_BY]->(a)
+      CREATE (f)-[:DEPARTS_FROM]->(dep)
+      CREATE (f)-[:ARRIVES_AT]->(arr)
+      RETURN f.flightNumber as flightNumber
     `;
 
-    return await this.neo4jService.read(cypher, { 
-      departureCode, 
-      arrivalCode,
-      ...(maxPrice && { maxPrice })
+    const result = await this.neo4jService.write(cypher, {
+      ...input,
+      departure: input.departure.toISOString(),
+      arrival: input.arrival.toISOString(),
+      duration: int(input.duration)
     });
+
+    if (result.length === 0) {
+      throw new Error('Could not create flight. Ensure Airline and Airports exist.');
+    }
+    return this.getFlightByNumber(input.flightNumber);
   }
 
-  // Recommandations de vols similaires
-  async getRecommendedFlights(flightNumber: string): Promise<Flight[]> {
+  // --- UPDATE ---
+  async updateFlight(flightNumber: string, updateData: Partial<CreateFlightInput>): Promise<any> {
     const cypher = `
-      MATCH (original:Flight {flightNumber: $flightNumber})
-      MATCH (original)-[:DEPARTS_FROM]->(depAirport:Airport)
-      MATCH (original)-[:ARRIVES_AT]->(arrAirport:Airport)
-      
-      // Trouver des vols similaires (même route ou compagnie)
-      MATCH (similar:Flight)-[:DEPARTS_FROM]->(depAirport)
-      MATCH (similar)-[:ARRIVES_AT]->(arrAirport)
-      WHERE similar.flightNumber <> $flightNumber
-      
-      MATCH (similar)-[:OPERATES]-(airline:Airline)
-      MATCH (depAirport)-[:LOCATED_IN]->(depCity:City)
-      MATCH (arrAirport)-[:LOCATED_IN]->(arrCity:City)
-      OPTIONAL MATCH (similar)-[hp:HAS_PRICE]->(sc:SeatClass)
-      
-      WITH similar, airline, depAirport, depCity, arrAirport, arrCity,
-           collect({
-             type: sc.type,
-             amount: hp.amount,
-             currency: hp.currency
-           }) as prices
-      
-      RETURN similar.flightNumber as flightNumber,
-             similar.departure as departure,
-             similar.arrival as arrival,
-             similar.duration as duration,
-             airline.code as airlineCode,
-             airline.name as airlineName,
-             depAirport.code as depAirportCode,
-             depCity.name as depCityName,
-             depCity.country as depCountry,
-             arrAirport.code as arrAirportCode,
-             arrCity.name as arrCityName,
-             arrCity.country as arrCountry,
-             prices
-      LIMIT $limit
+      MATCH (f:Flight {flightNumber: $flightNumber})
+      SET f += $props
+      RETURN f.flightNumber as flightNumber
     `;
 
-    const results = await this.neo4jService.read(cypher, { flightNumber });
-    
-    return results.map(r => ({
-      flightNumber: r.flightNumber,
-      departure: new Date(r.departure),
-      arrival: new Date(r.arrival),
-      duration: r.duration.toNumber ? r.duration.toNumber() : r.duration,
-      airline: {
-        code: r.airlineCode,
-        name: r.airlineName,
-      },
-      departureAirport: {
-        code: r.depAirportCode,
-        city: {
-          code: r.depAirportCode,
-          name: r.depCityName,
-          country: r.depCountry,
-        },
-      },
-      arrivalAirport: {
-        code: r.arrAirportCode,
-        city: {
-          code: r.arrAirportCode,
-          name: r.arrCityName,
-          country: r.arrCountry,
-        },
-      },
-      prices: r.prices.filter(p => p.type !== null),
-    }));
+    const result = await this.neo4jService.write(cypher, {
+      flightNumber,
+      props: updateData
+    });
+
+    if (result.length === 0) throw new NotFoundException('Flight not found');
+    return this.getFlightByNumber(flightNumber);
   }
+
+  // --- DELETE ---
+  async deleteFlight(flightNumber: string): Promise<boolean> {
+    const cypher = `
+      MATCH (f:Flight {flightNumber: $flightNumber})
+      DETACH DELETE f
+      RETURN count(f) as deletedCount
+    `;
+
+    const result = await this.neo4jService.write(cypher, { flightNumber });
+    return result[0].deletedCount > 0;
+  }
+  
+ 
 }
