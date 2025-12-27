@@ -21,6 +21,7 @@ import { AuthModule } from './auth/auth.module';
     autoSchemaFile: join(process.cwd(), 'src/schema.gql'), // Auto-generated schema
     sortSchema: true, // Sort schema alphabetically
     introspection: true,
+    context: ({ req, res }) => ({ req, res }),
     
       formatError: (error) => {
         return {

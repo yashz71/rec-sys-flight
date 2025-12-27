@@ -8,14 +8,18 @@ import { CreateFlightInput } from './inputs/create-flight.input';
 @Injectable()
 export class FlightsService {
   constructor(private readonly neo4jService: Neo4jService) {}
-
+async getAllcities(){
+  const cypher = `MATCH(n:City)Return n.name as name`;
+  const results = await this.neo4jService.read(cypher);
+  return results.map(record => record.name);
+}
   // Récupérer tous les vols avec tous les détails
   async getAllFlights(limit: number = 50): Promise<Flight[]> {
     const cypher = `
       MATCH (f:Flight)-[:OPERATES]-(airline:Airline)
       MATCH (f)-[:DEPARTS_FROM]->(depAirport:Airport)-[:LOCATED_IN]->(depCity:City)
       MATCH (f)-[:ARRIVES_AT]->(arrAirport:Airport)-[:LOCATED_IN]->(arrCity:City)
-      OPTIONAL MATCH (f)-[hp:HAS_PRICE]->(sc:SeatClass)
+      MATCH (f)-[hp:HAS_PRICE]->(sc:SeatClass)
       WITH f, airline, depAirport, depCity, arrAirport, arrCity,
            collect({
              type: sc.type,

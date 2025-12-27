@@ -3,7 +3,6 @@ import { User } from '../../user/model/user.model'; // Import your existing User
 
 @ObjectType()
 export class AuthResponse {
-  @Field()
   access_token: string;
 
   @Field(() => User)

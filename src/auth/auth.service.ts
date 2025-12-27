@@ -19,16 +19,17 @@ export class AuthService {
     
       // 1. Check if user exists
       if (!user){ 
+        console.log('invalid user');
         return null;
       }
 
       // 2. Compare directly (user.password exists now)
       const isMatch = bcrypt.compareSync(pass, user.password);
       if (isMatch) {
-        const { password, ...result } = user;
+        const {password,...result } = user;
         return result;
       }
-      
+      console.log('invalid pass');
       return null;
     }
       async login(user: any): Promise<AuthResponse> {
@@ -43,7 +44,7 @@ export class AuthService {
         // 2. Return the full AuthResponse shape
         return {
           access_token: this.jwtService.sign(payload),
-          user: user, // Return the user object so the frontend can use it immediately
+          user: user,
         };
       }
   async register(input: RegisterInput): Promise<AuthResponse> {
@@ -66,12 +67,14 @@ export class AuthService {
     const payload = { 
       sub: newUser.id, 
       email: newUser.email,
-      roles: newUser.roles 
-    };
+      roles: newUser.roles,
+      username: newUser.username 
 
+    };
+    const { password, ...safeUser } = newUser;
     return {
       access_token: this.jwtService.sign(payload),
-      user: newUser,
+      user: safeUser,
     };
   }
   async updateUser(id: string, input: UpdateUserInput): Promise<User> {

@@ -68,6 +68,9 @@ export class FlightsResolver {
   async deleteFlight(@Args('flightNumber') flightNumber: string) {
     return this.flightsService.deleteFlight(flightNumber);
   }
- 
+ @Query(()=>[String])
+ async cities(){
+  return this.flightsService.getAllcities();
+ }
  
 }
