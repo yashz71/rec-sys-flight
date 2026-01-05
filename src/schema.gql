@@ -56,7 +56,7 @@ input FlightSearchInput {
   departureAirportCode: String
   departureCity: String
   departureCountry: String
-  departureDate: DateTime
+  departureDate: String
   limit: Int = 10
   maxPrice: Float
   seatClass: String
@@ -80,11 +80,11 @@ type Mutation {
 type Query {
   cities: [String!]!
 
-  """Get a specific flight by flight number"""
-  flight(flightNumber: String!): Flight!
-
   """Get all available flights with prices"""
   flights(limit: Int = 50): [Flight!]!
+
+  """Get a specific flight by flight number"""
+  getFlight(flightNumber: String!): Flight!
   me: User!
 
   """Search flights with various filters including price and seat class"""

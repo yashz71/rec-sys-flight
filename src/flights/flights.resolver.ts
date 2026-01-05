@@ -25,13 +25,14 @@ export class FlightsResolver {
   }
 
   @Query(() => Flight, { 
-    name: 'flight',
+    name: 'getFlight',
     description: 'Get a specific flight by flight number'
   })
   @UseGuards(GqlAuthGuard)
   async getFlight(
     @Args('flightNumber') flightNumber: string
   ): Promise<Flight> {
+    console.log("testing flight N",flightNumber);
     return await this.flightsService.getFlightByNumber(flightNumber);
   }
 
@@ -43,6 +44,7 @@ export class FlightsResolver {
   async searchFlights(
     @Args('search') search: FlightSearchInput
   ): Promise<Flight[]> {
+    console.log('Search Params in res: ', search); // Should now show the data
     return await this.flightsService.searchFlights(search);
   }
   @Mutation(() => Flight)
