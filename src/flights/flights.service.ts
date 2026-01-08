@@ -1,13 +1,38 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Neo4jService } from '../neo4j/neo4j.service';
 import { Flight } from './models/flight.model';
-import { FlightSearchInput } from './inputs/flight-search.input';
+import { FlightSearchInput } from './dto/flight-search.input';
 import { int, Integer } from 'neo4j-driver';
-import { CreateFlightInput } from './inputs/create-flight.input';
+import { CreateFlightInput } from './dto/create-flight.input';
 
 @Injectable()
 export class FlightsService {
   constructor(private readonly neo4jService: Neo4jService) {}
+  async bookFlight(userId: string, flightNumber: string) {
+    const cypher = `
+      MATCH (u:User {id: $userId})
+      MATCH (f:Flight {flightNumber: $flightNumber})
+      MERGE (u)-[r:HAS_BOOKED]->(f)
+      ON CREATE SET 
+        r.bookingDate = datetime(), 
+        r.status = 'confirmed'
+      RETURN r.status AS status
+    `;
+
+    const params = { userId, flightNumber };
+    const result = await this.neo4jService.write(cypher, params);
+
+    if (!result.length) {
+      throw new Error('User or Flight not found');
+    }
+
+    return {
+      success: true,
+      message: `Flight ${flightNumber} has been secured.`,
+    };
+  }
+
+
 async getAllcities(){
   const cypher = `MATCH(n:City)Return n.name as name`;
   const results = await this.neo4jService.read(cypher);

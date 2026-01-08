@@ -16,6 +16,11 @@ type AuthResponse {
   user: User!
 }
 
+type BookingResponse {
+  message: String!
+  success: Boolean!
+}
+
 type City {
   code: ID!
   country: String!
@@ -68,6 +73,7 @@ input LoginInput {
 }
 
 type Mutation {
+  bookFlight(flightNumber: String!, userId: String!): BookingResponse!
   createFlight(input: CreateFlightInput!): Flight!
   deleteFlight(flightNumber: String!): Boolean!
   login(loginInput: LoginInput!): AuthResponse!

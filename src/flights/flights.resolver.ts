@@ -1,16 +1,33 @@
 import { Resolver, Query, Args, ID, Int, Mutation } from '@nestjs/graphql';
 import { FlightsService } from './flights.service';
 import { Flight } from './models/flight.model';
-import { FlightSearchInput } from './inputs/flight-search.input';
+import { FlightSearchInput } from './dto/flight-search.input';
 import { UseGuards } from '@nestjs/common';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { CreateFlightInput } from './inputs/create-flight.input';
+import { CreateFlightInput } from './dto/create-flight.input';
+import { BookingResponse } from './dto/book-flight';
 
 @Resolver(() => Flight)
 export class FlightsResolver {
   constructor(private readonly flightsService: FlightsService) {}
+
+  @Mutation(() => BookingResponse)
+  @UseGuards(GqlAuthGuard)
+  async bookFlight(
+    @Args('flightNumber') flightNumber: string,
+    @Args('userId') userId: string,
+  ): Promise<BookingResponse> {
+    try {
+      return await this.flightsService.bookFlight(userId, flightNumber);
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
 
   @Query(() => [Flight], { 
     name: 'flights',
