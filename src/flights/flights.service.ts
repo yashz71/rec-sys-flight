@@ -8,6 +8,102 @@ import { CreateFlightInput } from './dto/create-flight.input';
 @Injectable()
 export class FlightsService {
   constructor(private readonly neo4jService: Neo4jService) {}
+async getRecommendationsByOthers(userId: string): Promise<Flight[]> {
+    const cypher = `
+      MATCH (u:User {id: $userId})-[:HAS_BOOKED]->(f:Flight)<-[:HAS_BOOKED]-(other:User)
+      MATCH (other)-[:HAS_BOOKED]->(rec:Flight)
+      WHERE NOT (u)-[:HAS_BOOKED]->(rec) AND rec <> f
+      
+      WITH rec, count(*) as frequency
+      MATCH (rec)-[:OPERATES]-(airline:Airline)
+      MATCH (rec)-[:DEPARTS_FROM]->(depAirport:Airport)-[:LOCATED_IN]->(depCity:City)
+      MATCH (rec)-[:ARRIVES_AT]->(arrAirport:Airport)-[:LOCATED_IN]->(arrCity:City)
+      OPTIONAL MATCH (rec)-[hp:HAS_PRICE]->(sc:SeatClass)
+      
+      WITH rec, airline, depAirport, depCity, arrAirport, arrCity, frequency,
+           collect({
+             type: sc.type,
+             amount: hp.amount,
+             currency: hp.currency
+           }) as prices
+      RETURN rec.flightNumber as flightNumber, rec.departure as departure, 
+             rec.arrival as arrival, rec.duration as duration,
+             airline.code as airlineCode, airline.name as airlineName,
+             depAirport.code as depAirportCode, depCity.name as depCityName, depCity.country as depCountry,
+             arrAirport.code as arrAirportCode, arrCity.name as arrCityName, arrCity.country as arrCountry,
+             prices
+      ORDER BY frequency DESC
+      LIMIT 10
+    `;
+
+    const results = await this.neo4jService.read(cypher, {userId});
+    return results.map(r => this.mapRecordToFlight(r));
+  }
+
+async getRecommendationsByHistory(userId: string): Promise<Flight[]> {
+    const cypher = `
+      MATCH (u:User {id: $userId})-[:HAS_BOOKED]->(past:Flight)
+      MATCH (past)-[:ARRIVES_AT]->(:Airport)-[:LOCATED_IN]->(city:City)
+      
+      // Find new flights to the same cities or same airlines
+      MATCH (rec:Flight)-[:ARRIVES_AT]->(:Airport)-[:LOCATED_IN]->(city)
+      WHERE NOT (u)-[:HAS_BOOKED]->(rec)
+      
+      WITH rec, count(city) as score
+      MATCH (rec)-[:OPERATES]-(airline:Airline)
+      MATCH (rec)-[:DEPARTS_FROM]->(depAirport:Airport)-[:LOCATED_IN]->(depCity:City)
+      MATCH (rec)-[:ARRIVES_AT]->(arrAirport:Airport)-[:LOCATED_IN]->(arrCity:City)
+      OPTIONAL MATCH (rec)-[hp:HAS_PRICE]->(sc:SeatClass)
+      
+      WITH rec, airline, depAirport, depCity, arrAirport, arrCity, score,
+           collect({
+             type: sc.type,
+             amount: hp.amount,
+             currency: hp.currency
+           }) as prices
+      RETURN rec.flightNumber as flightNumber, rec.departure as departure, 
+             rec.arrival as arrival, rec.duration as duration,
+             airline.code as airlineCode, airline.name as airlineName,
+             depAirport.code as depAirportCode, depCity.name as depCityName, depCity.country as depCountry,
+             arrAirport.code as arrAirportCode, arrCity.name as arrCityName, arrCity.country as arrCountry,
+             prices
+      ORDER BY score DESC
+      LIMIT 10
+    `;
+
+    const results = await this.neo4jService.read(cypher, {userId});
+    return results.map(r => this.mapRecordToFlight(r));
+  }
+  private mapRecordToFlight(r: any): Flight {
+    return {
+      flightNumber: r.flightNumber,
+      departure: new Date(r.departure),
+      arrival: new Date(r.arrival),
+      duration: r.duration.toNumber ? r.duration.toNumber() : r.duration,
+      airline: {
+        code: r.airlineCode,
+        name: r.airlineName,
+      },
+      departureAirport: {
+        code: r.depAirportCode,
+        city: {
+          code: r.depAirportCode,
+          name: r.depCityName,
+          country: r.depCountry,
+        },
+      },
+      arrivalAirport: {
+        code: r.arrAirportCode,
+        city: {
+          code: r.arrAirportCode,
+          name: r.arrCityName,
+          country: r.arrCountry,
+        },
+      },
+      prices: r.prices.filter(p => p.type !== null),
+    };
+  }
+
   async bookFlight(userId: string, flightNumber: string) {
     const cypher = `
       MATCH (u:User {id: $userId})

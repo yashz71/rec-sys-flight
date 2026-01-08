@@ -91,6 +91,12 @@ type Query {
 
   """Get a specific flight by flight number"""
   getFlight(flightNumber: String!): Flight!
+
+  """A query for flight service recommendation"""
+  getRecommendedFlightsByBooking(userId: String!): [Flight!]!
+
+  """A query for flight service recommendation"""
+  getRecommendedFlightsByOthers(userId: String!): [Flight!]!
   me: User!
 
   """Search flights with various filters including price and seat class"""

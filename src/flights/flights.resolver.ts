@@ -13,6 +13,23 @@ import { BookingResponse } from './dto/book-flight';
 export class FlightsResolver {
   constructor(private readonly flightsService: FlightsService) {}
 
+@Query(() => [Flight],{
+  name: 'getRecommendedFlightsByOthers',
+  description: 'A query for flight service recommendation'
+})
+@UseGuards(GqlAuthGuard)
+async getRecommendedFlightsByOthers(@Args('userId') userId: string): Promise<Flight[]> {
+  return await this.flightsService.getRecommendationsByOthers(userId);
+}
+@Query(() => [Flight],{
+  name: 'getRecommendedFlightsByBooking',
+  description: 'A query for flight service recommendation'
+})
+@UseGuards(GqlAuthGuard)
+async getRecommendedFlightsByBooking(@Args('userId') userId: string): Promise<Flight[]> {
+  return await this.flightsService.getRecommendationsByHistory(userId);
+}
+
   @Mutation(() => BookingResponse)
   @UseGuards(GqlAuthGuard)
   async bookFlight(
