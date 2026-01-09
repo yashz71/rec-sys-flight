@@ -7,9 +7,19 @@ type Airline {
   name: String!
 }
 
+type AirlineInfo {
+  code: String!
+  name: String!
+}
+
 type Airport {
   city: City!
   code: ID!
+}
+
+type AirportInfo {
+  city: String!
+  code: String!
 }
 
 type AuthResponse {
@@ -27,17 +37,12 @@ type City {
   name: String!
 }
 
-type CodeName {
-  code: String!
-  name: String!
-}
-
 input CreateFlightInput {
   airlineCode: String!
   arrAirportCode: String!
-  arrival: DateTime!
+  arrival: String!
   depAirportCode: String!
-  departure: DateTime!
+  departure: String!
   duration: Float!
   flightNumber: String!
 }
@@ -59,8 +64,8 @@ type Flight {
 }
 
 type FlightMetadata {
-  airlines: [CodeName!]!
-  airports: [CodeName!]!
+  airlines: [AirlineInfo!]!
+  airports: [AirportInfo!]!
 }
 
 input FlightSearchInput {

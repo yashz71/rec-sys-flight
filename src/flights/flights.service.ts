@@ -3,6 +3,7 @@ import { Neo4jService } from '../neo4j/neo4j.service';
 import { Flight } from './models/flight.model';
 import { FlightSearchInput } from './dto/flight-search.input';
 import { int, Integer } from 'neo4j-driver';
+import { FlightMetadata } from './dto/flight-metadata';
 import { CreateFlightInput } from './dto/create-flight.input';
 
 @Injectable()
@@ -395,20 +396,29 @@ async getAllcities(){
       CREATE (f)-[:ARRIVES_AT]->(arr)
       RETURN f.flightNumber as flightNumber
     `;
+// 1. Convert inputs to strings/integers explicitly
+  const params = {
+    flightNumber: input.flightNumber,
+    airlineCode: input.airlineCode,
+    depAirportCode: input.depAirportCode,
+    arrAirportCode: input.arrAirportCode,
+    // Ensure these are ISO strings for Neo4j compatibility
+    departure:input.departure,
+    arrival: input.arrival,
+    duration: int(Number(input.duration)) 
+  };
 
-    const result = await this.neo4jService.write(cypher, {
-      ...input,
-      departure: input.departure.toISOString(),
-      arrival: input.arrival.toISOString(),
-      duration: int(input.duration)
-    });
+  console.log("Final Neo4j Params:", params);
 
-    if (result.length === 0) {
-      throw new Error('Could not create flight. Ensure Airline and Airports exist.');
-    }
-    return this.getFlightByNumber(input.flightNumber);
+  const result = await this.neo4jService.write(cypher, params);
+
+  if (!result || result.length === 0) {
+    throw new Error('Could not create flight. Ensure Airline and Airports exist in the database.');
   }
-
+  
+  return this.getFlightByNumber(input.flightNumber);
+}
+    
   // --- UPDATE ---
   async updateFlight(flightNumber: string, updateData: Partial<CreateFlightInput>): Promise<any> {
     const cypher = `
@@ -438,15 +448,23 @@ async getAllcities(){
     return result[0].deletedCount > 0;
   }
   
- async getFlightMetaData(){
+ async getFlightMetaData(): Promise<FlightMetadata>{
+  console.log("Fetching flight metadata from service...");
   const cypher = `
     MATCH (a:Airline)
-    MATCH (ap:Airport)
+    MATCH (ap:Airport)-[:LOCATED_IN]->(c:City)
     RETURN 
-      collect(distinct {code: a.code, name: a.name}) as airlines,
-      collect(distinct {code: ap.code, name: ap.name}) as airports
-  `;
+      collect(DISTINCT {code: a.code, name: a.name}) as airlines,
+      collect(DISTINCT {code: ap.code, city: c.name}) as airports`;
+
   const result = await this.neo4jService.read(cypher, {});
-  return result[0];
+  
+  // Neo4j 'collect' returns an array inside the first record
+  const data = result[0]; 
+
+  return {
+    airlines: data.airlines || [],
+    airports: data.airports || []
+  };
  }
 }

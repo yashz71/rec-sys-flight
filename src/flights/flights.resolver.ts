@@ -85,6 +85,7 @@ async getRecommendedFlightsByBooking(@Args('userId') userId: string): Promise<Fl
   @Roles('ADMIN')
   @UseGuards(GqlAuthGuard, RolesGuard)
   async createFlight(@Args('input') input: CreateFlightInput) {
+    console.log('Resolver received:', input);
     return this.flightsService.createFlight(input);
   }
 
@@ -112,6 +113,7 @@ async getRecommendedFlightsByBooking(@Args('userId') userId: string): Promise<Fl
 @UseGuards(GqlAuthGuard, RolesGuard)
 @Roles('ADMIN')
 async getFlightMetadata() {
+  console.log("Resolver: Fetching flight metadata...");
 return this.flightsService.getFlightMetaData();
 }
  

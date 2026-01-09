@@ -1,12 +1,26 @@
 import { InputType, Field } from '@nestjs/graphql';
+import { IsOptional, IsString } from 'class-validator';
 
 @InputType()
 export class CreateFlightInput {
-  @Field() flightNumber: string;
-  @Field() departure: Date;
-  @Field() arrival: Date;
-  @Field() duration: number;
-  @Field() airlineCode: string; // To link the existing Airline
-  @Field() depAirportCode: string; // To link departure Airport
-  @Field() arrAirportCode: string; // To link arrival Airport
+    @Field()  
+    @IsString()
+    flightNumber: string;
+    @Field() 
+    @IsString()
+    departure: string;
+    @Field() 
+    @IsString()
+    arrival: string;
+    @Field() 
+    duration: number;
+    @Field() 
+    @IsString()
+    airlineCode: string; // To link the existing Airline
+    @Field() 
+    @IsString()
+    depAirportCode: string; // To link departure Airport
+    @Field() 
+    @IsString()
+    arrAirportCode: string; // To link arrival Airport
 }
