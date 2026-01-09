@@ -390,7 +390,7 @@ async getAllcities(){
         arrival: $arrival,
         duration: $duration
       })
-      CREATE (f)-[:OPERATES_BY]->(a)
+      CREATE (f)-[:OPERATES]->(a)
       CREATE (f)-[:DEPARTS_FROM]->(dep)
       CREATE (f)-[:ARRIVES_AT]->(arr)
       RETURN f.flightNumber as flightNumber
@@ -438,5 +438,15 @@ async getAllcities(){
     return result[0].deletedCount > 0;
   }
   
- 
+ async getFlightMetaData(){
+  const cypher = `
+    MATCH (a:Airline)
+    MATCH (ap:Airport)
+    RETURN 
+      collect(distinct {code: a.code, name: a.name}) as airlines,
+      collect(distinct {code: ap.code, name: ap.name}) as airports
+  `;
+  const result = await this.neo4jService.read(cypher, {});
+  return result[0];
+ }
 }

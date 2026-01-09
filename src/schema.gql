@@ -27,6 +27,11 @@ type City {
   name: String!
 }
 
+type CodeName {
+  code: String!
+  name: String!
+}
+
 input CreateFlightInput {
   airlineCode: String!
   arrAirportCode: String!
@@ -51,6 +56,11 @@ type Flight {
   duration: Int!
   flightNumber: String!
   prices: [SeatClass!]!
+}
+
+type FlightMetadata {
+  airlines: [CodeName!]!
+  airports: [CodeName!]!
 }
 
 input FlightSearchInput {
@@ -86,11 +96,12 @@ type Mutation {
 type Query {
   cities: [String!]!
 
-  """Get all available flights with prices"""
-  flights(limit: Int = 50): [Flight!]!
-
   """Get a specific flight by flight number"""
   getFlight(flightNumber: String!): Flight!
+  getFlightMetadata: FlightMetadata!
+
+  """Get all available flights with prices"""
+  getFlights(limit: Int = 10): [Flight!]!
 
   """A query for flight service recommendation"""
   getRecommendedFlightsByBooking(userId: String!): [Flight!]!

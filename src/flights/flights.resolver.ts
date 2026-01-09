@@ -8,7 +8,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CreateFlightInput } from './dto/create-flight.input';
 import { BookingResponse } from './dto/book-flight';
-
+import { FlightMetadata } from './dto/flight-metadata';
 @Resolver(() => Flight)
 export class FlightsResolver {
   constructor(private readonly flightsService: FlightsService) {}
@@ -47,12 +47,12 @@ async getRecommendedFlightsByBooking(@Args('userId') userId: string): Promise<Fl
   }
 
   @Query(() => [Flight], { 
-    name: 'flights',
+    name: 'getFlights',
     description: 'Get all available flights with prices'
   })
   @UseGuards(GqlAuthGuard)
   async getFlights(
-    @Args('limit', { type: () => Int, nullable: true, defaultValue: 50 }) 
+    @Args('limit', { type: () => Int, nullable: true, defaultValue: 10 }) 
     limit: number
   ): Promise<Flight[]> {
     return await this.flightsService.getAllFlights(limit);
@@ -108,5 +108,11 @@ async getRecommendedFlightsByBooking(@Args('userId') userId: string): Promise<Fl
  async cities(){
   return this.flightsService.getAllcities();
  }
+ @Query(() => FlightMetadata)
+@UseGuards(GqlAuthGuard, RolesGuard)
+@Roles('ADMIN')
+async getFlightMetadata() {
+return this.flightsService.getFlightMetaData();
+}
  
 }
