@@ -16,6 +16,23 @@ export class UserService {
       // We map the results to return the 'user' object defined in the Cypher map
       return results.map(record => record.user);
     }
+    async createAdmin(data: any):Promise<User>{
+      const cypher = `
+      CREATE (u:User {
+        id: randomUUID(),
+        username: $username,
+        email: $email,
+        password: $password,
+        roles: $roles
+      }) RETURN u
+    `;
+  
+    const result = await this.neo4jService.write(cypher, data);
+    
+    
+    return result[0].u.properties; 
+  }
+    
     async create(data: any): Promise<User> {
     const cypher = `
       CREATE (u:User {

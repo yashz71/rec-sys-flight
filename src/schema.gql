@@ -2,6 +2,13 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AddUserInput {
+  email: String
+  password: String
+  roles: [String!]!
+  username: String
+}
+
 type Airline {
   code: ID!
   name: String!
@@ -88,18 +95,21 @@ input LoginInput {
 }
 
 type Mutation {
-  addUser(registerInput: RegisterInput!): User!
+  addUser(addUserInput: AddUserInput!): User!
   bookFlight(flightNumber: String!, userId: String!): BookingResponse!
   createFlight(input: CreateFlightInput!): Flight!
   deleteFlight(flightNumber: String!): Boolean!
   login(loginInput: LoginInput!): AuthResponse!
   register(registerInput: RegisterInput!): AuthResponse!
   removeUser(id: String!): Boolean!
+  updateAdmin(id: String!, input: UpdateUserInput!): User!
   updateFlight(flightNumber: String!, input: CreateFlightInput!): Flight!
   updateProfile(id: String!, input: UpdateUserInput!): User!
 }
 
 type Query {
+  """Get all available users"""
+  allUsers: [User!]!
   cities: [String!]!
 
   """Get a specific flight by flight number"""
@@ -118,9 +128,6 @@ type Query {
 
   """Search flights with various filters including price and seat class"""
   searchFlights(search: FlightSearchInput!): [Flight!]!
-
-  """Get all available users"""
-  users: [User!]!
 }
 
 input RegisterInput {
@@ -143,6 +150,7 @@ type SeatClass {
 input UpdateUserInput {
   email: String
   password: String
+  roles: [String!]!
   username: String
 }
 

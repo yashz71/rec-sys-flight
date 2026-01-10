@@ -12,6 +12,7 @@ import { RolesGuard } from './guards/roles.guard';
 import { UpdateUserInput } from './dto/update-user.input';
 import { Roles } from './decorators/roles.decorator';
 import { auth } from 'neo4j-driver-core';
+import { AddUserInput } from './dto/add.user.input';
 @Resolver()
 export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
@@ -68,20 +69,35 @@ async updateProfile(
   
   throw new ForbiddenException('You do not have permission to update this profile');
 }
+@Mutation(() => User)
+@Roles('ADMIN')
+@UseGuards(GqlAuthGuard, RolesGuard)
+async updateAdmin(
+  @Args('id') id: string, 
+  @Args('input') input: UpdateUserInput,
+) {
+    return this.authService.updateAdmin(id, input);
+  
+  
+}
+
+
 
 @Mutation(() => Boolean)
 @Roles('ADMIN')
 @UseGuards(GqlAuthGuard, RolesGuard)
 async removeUser(@Args('id') id: string) {
+  console.log("deleting user...");
   return this.authService.deleteUser(id);
 }
 @Query(() => [User], { 
-  name: 'users',
+  name: 'allUsers',
   description: 'Get all available users'
 })
 @Roles('ADMIN')
 @UseGuards(GqlAuthGuard, RolesGuard)
 async allUsers() {
+  console.log("fetching users from db");
   return this.authService.allUsers();
 }
 @Query(() => User)
@@ -92,15 +108,10 @@ async me(@CurrentUser() user: any) {
 @Mutation(() => User, { name: 'addUser' })
   
 async addUSer(
-  @Args('registerInput') registerInput: RegisterInput
+  @Args('addUserInput') addUserInput: AddUserInput
 ) {
-  const authResponse = await this.authService.register(registerInput);
 
-// Set the cookie
-
-const user =authResponse.user;
-// Return the object to the frontend (the token is now also in the header)
-return {user};
+return this.authService.addAdmin(addUserInput);
 }
 
 }

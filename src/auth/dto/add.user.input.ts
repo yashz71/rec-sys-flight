@@ -3,7 +3,7 @@ import { RegisterInput } from './register.input';
 import { IsNotEmpty } from 'class-validator';
 
 @InputType()
-export class UpdateUserInput extends PartialType(RegisterInput) {
+export class AddUserInput extends PartialType(RegisterInput) {
   // Inherits username, email, and password as optional fields
   @Field(() => [String])
   @IsNotEmpty()
