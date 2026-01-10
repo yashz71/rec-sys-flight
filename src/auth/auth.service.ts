@@ -68,7 +68,7 @@ export class AuthService {
       sub: newUser.id, 
       email: newUser.email,
       roles: newUser.roles,
-      username: newUser.username 
+      username: newUser.username
 
     };
     const { password, ...safeUser } = newUser;

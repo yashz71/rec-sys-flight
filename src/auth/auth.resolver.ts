@@ -89,4 +89,18 @@ async allUsers() {
 async me(@CurrentUser() user: any) {
   return user; 
 }
+@Mutation(() => User, { name: 'addUser' })
+  
+async addUSer(
+  @Args('registerInput') registerInput: RegisterInput
+) {
+  const authResponse = await this.authService.register(registerInput);
+
+// Set the cookie
+
+const user =authResponse.user;
+// Return the object to the frontend (the token is now also in the header)
+return {user};
+}
+
 }

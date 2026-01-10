@@ -88,6 +88,7 @@ input LoginInput {
 }
 
 type Mutation {
+  addUser(registerInput: RegisterInput!): User!
   bookFlight(flightNumber: String!, userId: String!): BookingResponse!
   createFlight(input: CreateFlightInput!): Flight!
   deleteFlight(flightNumber: String!): Boolean!

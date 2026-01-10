@@ -96,6 +96,9 @@ async getRecommendedFlightsByBooking(@Args('userId') userId: string): Promise<Fl
     @Args('flightNumber') flightNumber: string,
     @Args('input') input: CreateFlightInput // Or a partial UpdateInput
   ) {
+    console.log("input: ",input);
+    console.log("flightN: ",flightNumber);
+
     return this.flightsService.updateFlight(flightNumber, input);
   }
 
