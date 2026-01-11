@@ -29,6 +29,14 @@ async getRecommendedFlightsByOthers(@Args('userId') userId: string): Promise<Fli
 async getRecommendedFlightsByBooking(@Args('userId') userId: string): Promise<Flight[]> {
   return await this.flightsService.getRecommendationsByHistory(userId);
 }
+@Query(() => [Flight],{
+  name: 'getHasBooked',
+  description: 'A query for flight service recommendation'
+})
+@UseGuards(GqlAuthGuard)
+async getHasBooked(@Args('userId') userId: string): Promise<Flight[]> {
+  return await this.flightsService.getHasBooked(userId);
+}
 
   @Mutation(() => BookingResponse)
   @UseGuards(GqlAuthGuard)

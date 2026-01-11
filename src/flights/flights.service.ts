@@ -40,6 +40,48 @@ async getRecommendationsByOthers(userId: string): Promise<Flight[]> {
     const results = await this.neo4jService.read(cypher, {userId});
     return results.map(r => this.mapRecordToFlight(r));
   }
+  async getHasBooked(userId: string):Promise<Flight[]>{
+    const cypher = `
+    MATCH (u:User {id: $userId})-[rel:HAS_BOOKED]->(f:Flight)
+    
+    // Get Airline details
+    MATCH (f)-[:OPERATES]-(airline:Airline)
+    
+    // Get Departure details
+    MATCH (f)-[:DEPARTS_FROM]->(depAirport:Airport)-[:LOCATED_IN]->(depCity:City)
+    
+    // Get Arrival details
+    MATCH (f)-[:ARRIVES_AT]->(arrAirport:Airport)-[:LOCATED_IN]->(arrCity:City)
+    
+    // Optional: Get Price/Class details if stored on the relationship or the flight
+    OPTIONAL MATCH (f)-[hp:HAS_PRICE]->(sc:SeatClass)
+    
+    WITH f, rel, airline, depAirport, depCity, arrAirport, arrCity,
+         collect({
+           type: sc.type,
+           amount: hp.amount,
+           currency: hp.currency
+         }) as prices
+         
+    RETURN f.flightNumber as flightNumber, 
+           f.departure as departure, 
+           f.arrival as arrival, 
+           f.duration as duration,
+           airline.code as airlineCode, 
+           airline.name as airlineName,
+           depAirport.code as depAirportCode, 
+           depCity.name as depCityName, 
+           depCity.country as depCountry,
+           arrAirport.code as arrAirportCode, 
+           arrCity.name as arrCityName, 
+           arrCity.country as arrCountry,
+           prices,
+           rel.bookingDate as bookingDate // If you store the date they clicked 'book'
+    ORDER BY f.departure DESC
+  `;
+  const results = await this.neo4jService.read(cypher, {userId});
+  return results.map(r => this.mapRecordToFlight(r));
+  }
 
 async getRecommendationsByHistory(userId: string): Promise<Flight[]> {
     const cypher = `

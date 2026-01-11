@@ -33,10 +33,19 @@ export class AuthResolver {
   });
   const user =authResponse.user;
   // Return the object to the frontend (the token is now also in the header)
-  return {user};
+  return { user };
   }
 
-  
+  @Mutation(() => Boolean)
+async logout(@Context() context: any) {
+  context.res.cookie('access_token', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    expires: new Date(0), // Sets expiration to the past to delete it
+  });
+  return true;
+}
 @Mutation(() => AuthResponse)
 async login(@Args('loginInput') loginInput: LoginInput,@Context() context: any) {
   const user = await this.authService.validateUser(loginInput.email, loginInput.password);

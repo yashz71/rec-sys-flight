@@ -100,6 +100,7 @@ type Mutation {
   createFlight(input: CreateFlightInput!): Flight!
   deleteFlight(flightNumber: String!): Boolean!
   login(loginInput: LoginInput!): AuthResponse!
+  logout: Boolean!
   register(registerInput: RegisterInput!): AuthResponse!
   removeUser(id: String!): Boolean!
   updateAdmin(id: String!, input: UpdateUserInput!): User!
@@ -118,6 +119,9 @@ type Query {
 
   """Get all available flights with prices"""
   getFlights(limit: Int = 10): [Flight!]!
+
+  """A query for flight service recommendation"""
+  getHasBooked(userId: String!): [Flight!]!
 
   """A query for flight service recommendation"""
   getRecommendedFlightsByBooking(userId: String!): [Flight!]!
